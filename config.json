@@ -1,7 +1,9 @@
 {
     "CSHARP" : {
         "imports" : [
-            "using System.IO.MemoryMappedFiles;"
+            "using System.IO;",
+            "using System.IO.MemoryMappedFiles;",
+            "using System.Text;"
         ],
         "libraries" : [
             
