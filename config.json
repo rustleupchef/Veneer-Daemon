@@ -1,0 +1,10 @@
+{
+    "CSHARP" : {
+        "imports" : [
+            "using System.IO.MemoryMappedFiles;"
+        ],
+        "libraries" : [
+            
+        ]
+    }
+}
