@@ -18,7 +18,7 @@ static tooth<void> sendByMM(string s) language("CSHARP") => {
             accessor.Write(0, data.Length);
             accessor.WriteArray(4, data, 0, data.Length);
 
-            Console.WriteLine("Data written to /dev/shm/my_shared_memory.");
+            Console.WriteLine($"Data written to {mapname}");
             Console.WriteLine("Press Enter to exit and free memory...");
             Console.ReadLine(); 
         }
