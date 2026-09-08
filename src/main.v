@@ -61,9 +61,9 @@ static tooth<void> sendByMM(string s) language("CSHARP") => |
             SharedData data = new SharedData { Flag = 0, Input = "", Output = "" };
             WriteStructToAccessor(accessor, ref data);
 
-            while (true) {
+            bool isRunning = true;
+            while (isRunning) {
                 string input = Console.ReadLine();
-                if (input == "exit") break;
 
                 data.Input = input;
                 data.Output = "";
@@ -73,6 +73,10 @@ static tooth<void> sendByMM(string s) language("CSHARP") => |
                 while (true) {
                     data = ReadStructFromAccessor<SharedData>(accessor);
                     if (data.Flag == 2) break;
+                    if (data.Flag == 3) {
+                        isRunning = false;
+                        break;
+                    }
                     Thread.Sleep(10);
                 }
 

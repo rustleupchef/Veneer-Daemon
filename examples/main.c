@@ -38,6 +38,9 @@ int main() {
         if (shm->flag == 1) {
             printf("Received input: %s\n", shm->input);
 
+            if (!strcmp(shm->input, "exit"))
+                break;
+
             // Process data and populate output string
             snprintf(shm->output, STR_SIZE, "Processed by C: %s", shm->input);
 
@@ -48,6 +51,8 @@ int main() {
         // Sleep briefly to avoid 100% CPU utilization while polling
         usleep(10000); 
     }
+
+    shm->flag = 3;
 
     // Cleanup resources
     munmap(shm, sizeof(SharedData));
