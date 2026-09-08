@@ -6,37 +6,51 @@
 #include <string.h>
 
 #define SHM_PATH "/dev/shm/VeneerRuntime"
-#define MEM_SIZE 1024
+#define STR_SIZE 256
+
+// Use standard fixed-size layout matching C# memory structure
+typedef struct {
+    int flag;             // 0: Idle/Processed, 1: Ready for C, 2: Ready for C#
+    char input[STR_SIZE];
+    char output[STR_SIZE];
+} SharedData;
 
 int main() {
-    // Open the shared memory file created by C#
-    int fd = open(SHM_PATH, O_RDONLY);
+    // Open existing shared memory file with read-write access
+    int fd = open(SHM_PATH, O_RDWR);
     if (fd < 0) {
         perror("Failed to open shared memory file");
         return 1;
     }
 
-    // Map the file into the process memory space
-    void* pBuf = mmap(NULL, MEM_SIZE, PROT_READ, MAP_SHARED, fd, 0);
-    if (pBuf == MAP_FAILED) {
+    // Map struct memory space with write access
+    SharedData* shm = (SharedData*)mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (shm == MAP_FAILED) {
         perror("mmap failed");
         close(fd);
         return 1;
     }
 
-    // Read the message length from the first 4 bytes
-    int dataLength = *((int*)pBuf);
-    
-    // Read the string message right after the 4-byte integer boundary
-    char* message = malloc(dataLength + 1);
-    memcpy(message, (char*)pBuf + 4, dataLength);
-    message[dataLength] = '\0'; // Null-terminate the string
+    printf("C Service started listening on %s...\n", SHM_PATH);
 
-    printf("Received from C#: %s\n", message);
+    while (1) {
+        // Wait until C# updates flag to 1
+        if (shm->flag == 1) {
+            printf("Received input: %s\n", shm->input);
 
-    // Clean up resources
-    free(message);
-    munmap(pBuf, MEM_SIZE);
+            // Process data and populate output string
+            snprintf(shm->output, STR_SIZE, "Processed by C: %s", shm->input);
+
+            // Signal to C# that processing is complete
+            shm->flag = 2;
+        }
+
+        // Sleep briefly to avoid 100% CPU utilization while polling
+        usleep(10000); 
+    }
+
+    // Cleanup resources
+    munmap(shm, sizeof(SharedData));
     close(fd);
 
     return 0;
