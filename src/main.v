@@ -95,6 +95,16 @@ static async tooth<void> Server() language("CSHARP") => |
                 output.Close();
             }
         }
+
+        if (path == "/end-server") {
+            byte[] buffer = Encoding.UTF8.GetBytes("{\"status\" : \"success\"}");
+
+            using var output = response.OutputStream;
+            await output.WriteAsync(buffer, 0, buffer.Length);
+            output.Close();
+
+            break;
+        }
     }
 |
 
