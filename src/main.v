@@ -10,6 +10,14 @@ class CreateConnection {
     }
 }
 
+class DeleteConnection {
+    public string name { get; private set; }
+
+    public DeleteConnection(string name) {
+        this.name = name;
+    }
+}
+
 static async tooth<void> Server() language("CSHARP") => |
     string directory = "/dev/shm";
 
@@ -59,6 +67,26 @@ static async tooth<void> Server() language("CSHARP") => |
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Output"))) {}
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Flag"))) {}
 
+                    buffer = Encoding.UTF8.GetBytes("{\"status\" : \"success\"}");
+                }
+
+                using var output = response.OutputStream;
+                await output.WriteAsync(buffer, 0, buffer.Length);
+                output.Close();
+            }
+
+            if (path == "/delete-channel") {
+                byte[] buffer;
+                if (string.IsNullOrEmpty(payload)) {
+                    buffer = Encoding.UTF8.GetBytes("{\"status\" : \"error\"}");
+                } else {
+                    DeleteConnection deleteConnection = JsonSerializer.Deserialize<DeleteConnection>(payload);
+                    string name = deleteConnection.name;
+                    string connectionDirectory = Path.Join(directory, name);
+
+                    if (Directory.Exists(connectionDirectory))
+                        Directory.Delete(connectionDirectory, recursive: true);
+                    
                     buffer = Encoding.UTF8.GetBytes("{\"status\" : \"success\"}");
                 }
 
