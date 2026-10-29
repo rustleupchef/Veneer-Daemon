@@ -1,12 +1,24 @@
 class CreateConnection {
     public string name { get; private set; }
-    public string[] inputs { get; private set; }
-    public string[] outputs { get; private set;}
 
-    public CreateConnection(string name, string[] inputs, string[] outputs) {
+    public string[] inputs { get; private set; }
+    public long[][] inputDimensions { get; private set; }
+
+    public string[] outputs { get; private set; }
+    public long[][] outputDimensions { get; private set; }
+
+    public CreateConnection (
+        string name,
+        string[] inputs, 
+        long[][] inputDimensions, 
+        string[] outputs, 
+        long[][] outputDimensions
+    ) {
         this.name = name;
         this.inputs = inputs;
+        this.inputDimensions = inputDimensions;
         this.outputs = outputs;
+        this.outputDimensions = outputDimensions;
     }
 }
 
@@ -17,6 +29,60 @@ class DeleteConnection {
         this.name = name;
     }
 }
+
+static func<long[][]> ConvertToMatrix(long[][] dimensions) {
+    long firstSize = dimensions.Length;
+    long secondSize = -1;
+
+    for (int i = 0; i < firstSize; i++) {
+        if (dimensions[i].Length > secondSize) {
+            secondSize = dimensions[i].Length;
+        }
+    }
+
+    long[][] matrix = new long[firstSize][];
+    for (int i = 0; i < firstSize; i++) {
+        
+        matrix[i] = new long[secondSize];
+
+        for (int j = 0; j < secondSize; j++) {
+            if (dimensions[i].Length <= j) break;
+            matrix[i][j] = dimensions[i][j];
+        }
+    }
+
+    return matrix;
+}
+
+static func<byte[]> ConvertTypesToBytes(string[] types) {
+    byte TypeToByte(string type) {
+        switch(type) {
+            case "char":
+                return 1;
+            case "int":
+                return 2;
+            case "float":
+                return 3;
+            case "double":
+                return 4;
+            default:
+                return 0;
+        }
+    }
+
+    byte[] byteTypes = new byte[types.Length];
+    for (int i = 0; i < types.Length; i++) {
+        byteTypes[i] = TypeToByte(types[i]);
+    }
+
+    return byteTypes;
+}
+
+static tooth<void> printMatrix(long[][] matrix, int firstSize) language("python") => |
+
+    flat = np.array(matrix, dtype=np.int64);
+    print(flat)
+|
 
 static async tooth<void> Server() language("CSHARP") => |
     string directory = "/dev/shm";
@@ -59,10 +125,19 @@ static async tooth<void> Server() language("CSHARP") => |
                 } else {
                     CreateConnection createConnection = JsonSerializer.Deserialize<CreateConnection>(payload);
                     string name = createConnection.name;
-                    string connectionDirectory = Path.Join(directory, name);
 
+                    string connectionDirectory = Path.Join(directory, name);
                     Directory.CreateDirectory(connectionDirectory);
-                    using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Schema"))) {}
+
+                    using(FileStream fs = new FileStream(Path.Join(connectionDirectory, "Schema"), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)) {
+                        byte[] inputBytes = ConvertTypesToBytes(createConnection.inputs);
+                        long[][] inputMatrixDimensions = ConvertToMatrix(createConnection.inputDimensions);
+                        printMatrix(inputMatrixDimensions, inputMatrixDimensions.Length);
+
+                        byte[] outputBytes = ConvertTypesToBytes(createConnection.outputs);
+                        long[][] outputMatrixDimensions = ConvertToMatrix(createConnection.outputDimensions);
+                        printMatrix(outputMatrixDimensions, outputMatrixDimensions.Length);
+                    }
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Input"))) {}
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Output"))) {}
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Flag"))) {}
@@ -106,6 +181,8 @@ static async tooth<void> Server() language("CSHARP") => |
             break;
         }
     }
+
+    listener.Close();
 |
 
 static async func<void> Main() {

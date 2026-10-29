@@ -12,5 +12,13 @@
         "libraries" : [
             
         ]
+    },
+    "PYTHON" : {
+        "imports" : [
+            "import numpy as np"
+        ],
+        "libraries" : [
+
+        ]
     }
 }
