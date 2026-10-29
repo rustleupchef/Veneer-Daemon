@@ -30,7 +30,7 @@ class DeleteConnection {
     }
 }
 
-static func<long[][]> ConvertToMatrix(long[][] dimensions) {
+static func<long[,]> ConvertToMatrix(long[][] dimensions) {
     long firstSize = dimensions.Length;
     long secondSize = -1;
 
@@ -40,14 +40,11 @@ static func<long[][]> ConvertToMatrix(long[][] dimensions) {
         }
     }
 
-    long[][] matrix = new long[firstSize][];
+    long[,] matrix = new long[firstSize, secondSize];
     for (int i = 0; i < firstSize; i++) {
-        
-        matrix[i] = new long[secondSize];
-
         for (int j = 0; j < secondSize; j++) {
             if (dimensions[i].Length <= j) break;
-            matrix[i][j] = dimensions[i][j];
+            matrix[i, j] = dimensions[i][j];
         }
     }
 
@@ -77,12 +74,6 @@ static func<byte[]> ConvertTypesToBytes(string[] types) {
 
     return byteTypes;
 }
-
-static tooth<void> printMatrix(long[][] matrix, int firstSize) language("python") => |
-
-    flat = np.array(matrix, dtype=np.int64);
-    print(flat)
-|
 
 static async tooth<void> Server() language("CSHARP") => |
     string directory = "/dev/shm";
@@ -131,12 +122,19 @@ static async tooth<void> Server() language("CSHARP") => |
 
                     using(FileStream fs = new FileStream(Path.Join(connectionDirectory, "Schema"), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)) {
                         byte[] inputBytes = ConvertTypesToBytes(createConnection.inputs);
-                        long[][] inputMatrixDimensions = ConvertToMatrix(createConnection.inputDimensions);
-                        printMatrix(inputMatrixDimensions, inputMatrixDimensions.Length);
+                        long[,] inputMatrixDimensions = ConvertToMatrix(createConnection.inputDimensions);
 
                         byte[] outputBytes = ConvertTypesToBytes(createConnection.outputs);
-                        long[][] outputMatrixDimensions = ConvertToMatrix(createConnection.outputDimensions);
-                        printMatrix(outputMatrixDimensions, outputMatrixDimensions.Length);
+                        long[,] outputMatrixDimensions = ConvertToMatrix(createConnection.outputDimensions);
+
+                        long inputByteSize = inputBytes.Length;
+                        long outputByteSize = outputBytes.Length;
+
+                        long inputMatrixSize = inputMatrixDimensions.Length * sizeof(long);
+                        long outputMatrixSize = outputMatrixDimensions.Length * sizeof(long);
+
+                        long totalSize = (inputByteSize + outputByteSize) + (inputMatrixSize + outputMatrixSize);
+                        fs.SetLength(totalSize);
                     }
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Input"))) {}
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Output"))) {}
