@@ -30,6 +30,17 @@ class DeleteConnection {
     }
 }
 
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+struct SchemaHeader
+{
+    public long InputByteSize;
+    public long OutputByteSize;
+    public long InputMatrixRows;
+    public long InputMatrixCols;
+    public long OutputMatrixRows;
+    public long OutputMatrixCols;
+}
+
 static func<long[,]> ConvertToMatrix(long[][] dimensions) {
     long firstSize = dimensions.Length;
     long secondSize = -1;
@@ -120,21 +131,78 @@ static async tooth<void> Server() language("CSHARP") => |
                     string connectionDirectory = Path.Join(directory, name);
                     Directory.CreateDirectory(connectionDirectory);
 
-                    using(FileStream fs = new FileStream(Path.Join(connectionDirectory, "Schema"), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)) {
-                        byte[] inputBytes = ConvertTypesToBytes(createConnection.inputs);
-                        long[,] inputMatrixDimensions = ConvertToMatrix(createConnection.inputDimensions);
+                    using (FileStream fs = new FileStream(Path.Join(connectionDirectory, "Schema"), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)) 
+                    {                         
+                        byte[] inputBytes = ConvertTypesToBytes(createConnection.inputs);                         
+                        long[,] inputMatrixDimensions = ConvertToMatrix(createConnection.inputDimensions);                          
+                        byte[] outputBytes = ConvertTypesToBytes(createConnection.outputs);                         
+                        long[,] outputMatrixDimensions = ConvertToMatrix(createConnection.outputDimensions);                          
 
-                        byte[] outputBytes = ConvertTypesToBytes(createConnection.outputs);
-                        long[,] outputMatrixDimensions = ConvertToMatrix(createConnection.outputDimensions);
+                        // Extract matrix structural dimensions
+                        long inputRows = inputMatrixDimensions.GetLength(0);
+                        long inputCols = inputMatrixDimensions.GetLength(1);
+                        long outputRows = outputMatrixDimensions.GetLength(0);
+                        long outputCols = outputMatrixDimensions.GetLength(1);
 
+                        // Calculate discrete data block payloads
+                        long headerSize = Marshal.SizeOf<SchemaHeader>();
                         long inputByteSize = inputBytes.Length;
                         long outputByteSize = outputBytes.Length;
-
                         long inputMatrixSize = inputMatrixDimensions.Length * sizeof(long);
                         long outputMatrixSize = outputMatrixDimensions.Length * sizeof(long);
 
-                        long totalSize = (inputByteSize + outputByteSize) + (inputMatrixSize + outputMatrixSize);
+                        // Total allocation bounds required for mapping
+                        long totalSize = headerSize + inputByteSize + outputByteSize + inputMatrixSize + outputMatrixSize;
+                        
+                        // Set file size on disk before creating the memory mapping
                         fs.SetLength(totalSize);
+
+                        // Instantiate header schema definition
+                        SchemaHeader header = new SchemaHeader
+                        {
+                            InputByteSize = inputByteSize,
+                            OutputByteSize = outputByteSize,
+                            InputMatrixRows = inputRows,
+                            InputMatrixCols = inputCols,
+                            OutputMatrixRows = outputRows,
+                            OutputMatrixCols = outputCols
+                        };
+
+                        // Create the MMF mapping directly from the existing FileStream instance
+                        using (MemoryMappedFile mmf = MemoryMappedFile.CreateFromFile(
+                            fs, 
+                            mapName: null, 
+                            capacity: totalSize, 
+                            MemoryMappedFileAccess.ReadWrite, 
+                            HandleInheritability.None, 
+                            leaveOpen: false))
+                        using (MemoryMappedViewAccessor accessor = mmf.CreateViewAccessor(0, totalSize, MemoryMappedFileAccess.Write))
+                        {
+                            long writeOffset = 0;
+
+                            // Write metadata header block
+                            accessor.Write(writeOffset, ref header);
+                            writeOffset += headerSize;
+
+                            // Write input linear byte array 
+                            accessor.WriteArray(writeOffset, inputBytes, 0, inputBytes.Length);
+                            writeOffset += inputByteSize;
+
+                            // Write output linear byte array
+                            accessor.WriteArray(writeOffset, outputBytes, 0, outputBytes.Length);
+                            writeOffset += outputByteSize;
+
+                            // Flatten and write multi-dimensional input matrix elements
+                            long[] flatInputMatrix = new long[inputMatrixDimensions.Length];
+                            Buffer.BlockCopy(inputMatrixDimensions, 0, flatInputMatrix, 0, (int)inputMatrixSize);
+                            accessor.WriteArray(writeOffset, flatInputMatrix, 0, flatInputMatrix.Length);
+                            writeOffset += inputMatrixSize;
+
+                            // Flatten and write multi-dimensional output matrix elements
+                            long[] flatOutputMatrix = new long[outputMatrixDimensions.Length];
+                            Buffer.BlockCopy(outputMatrixDimensions, 0, flatOutputMatrix, 0, (int)outputMatrixSize);
+                            accessor.WriteArray(writeOffset, flatOutputMatrix, 0, flatOutputMatrix.Length);
+                        }
                     }
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Input"))) {}
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Output"))) {}
