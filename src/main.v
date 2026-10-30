@@ -204,9 +204,23 @@ static async tooth<void> Server() language("CSHARP") => |
                             accessor.WriteArray(writeOffset, flatOutputMatrix, 0, flatOutputMatrix.Length);
                         }
                     }
+                    using(FileStream fs = new FileStream(Path.Join(connectionDirectory, "Flag"), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)) {
+                        fs.SetLength(sizeof(byte));
+                        using (MemoryMappedFile mmf = MemoryMappedFile.CreateFromFile(
+                            fs, 
+                            mapName: null, 
+                            capacity: sizeof(byte), 
+                            MemoryMappedFileAccess.ReadWrite, 
+                            HandleInheritability.None, 
+                            leaveOpen: false))
+                        using (MemoryMappedViewAccessor accessor = mmf.CreateViewAccessor(0, sizeof(byte), MemoryMappedFileAccess.Write))
+                        {
+                            accessor.Write(0, (byte) 2);
+                        }
+
+                    }
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Input"))) {}
                     using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Output"))) {}
-                    using(FileStream fs = File.Create(Path.Join(connectionDirectory, "Flag"))) {}
 
                     buffer = Encoding.UTF8.GetBytes("{\"status\" : \"success\"}");
                 }
