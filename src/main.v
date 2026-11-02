@@ -215,7 +215,7 @@ static async tooth<void> Server() language("CSHARP") => |
                             leaveOpen: false))
                         using (MemoryMappedViewAccessor accessor = mmf.CreateViewAccessor(0, sizeof(byte), MemoryMappedFileAccess.Write))
                         {
-                            accessor.Write(0, (byte) 2);
+                            accessor.Write(0, (byte) 1);
                         }
 
                     }
