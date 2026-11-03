@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -225,6 +226,69 @@ int allocateMappedFile(const char* channel, int isInput) {
         perror("Failed unmapping file");
         return -1;
     }
+
+    return 0;
+}
+
+int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
+    
+    char* pathIO = isInput ? "Input" : "Output";
+
+    char filepath[256];
+    snprintf(filepath, sizoef(filepath), "/dev/shm/%s/%s", channel, pathIO);
+
+    int fd = open(filepath, O_RDWR);
+    if (fd == -1) {
+        perror("Failed to open file");
+        return -1;
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("Failed to get file status");
+        close(fd);
+        return -1;
+    }
+
+    size_t filesize = (size_t) sb.st_size;
+
+    void* mapped_file = mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
+        perror("Mapping failed");
+        close(fd);
+        return -1;
+    }
+
+    StreamHeader* header = (StreamHeader*) mapped_file;
+    size_t offset = header->offset;
+
+    if (offset + sizeof(DataHeader) + (sizeof(u_int8_t) * size) > filesize) {
+        perror("Map buffer can not receive this large of data");
+        if (munmap(mapped_file, filesize) == -1) {
+            perror("Failed to unmap file");
+        }
+        close(fd);
+        return -1;
+    }
+
+    DataHeader* dataHeader = (DataHeader*) mapped_file + offset;
+    dataHeader->type = 1;
+    dataHeader->size = size;
+
+    uint8_t* pointer = (uint8_t*) dataHeader + sizeof(DataHeader);
+    memcpy(pointer, bytes, size);
+
+    header->offset = offset + sizeof(DataHeader) + (size * sizeof(uint8_t));
+
+    msync(mapped_file, filesize, MS_SYNC);
+
+    if (munmap(mapped_file, filesize) == -1) {
+        perror("Failed to unmap file");
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
 
     return 0;
 }
