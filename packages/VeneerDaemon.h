@@ -235,7 +235,7 @@ int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
     char* pathIO = isInput ? "Input" : "Output";
 
     char filepath[256];
-    snprintf(filepath, sizoef(filepath), "/dev/shm/%s/%s", channel, pathIO);
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
 
     int fd = open(filepath, O_RDWR);
     if (fd == -1) {
