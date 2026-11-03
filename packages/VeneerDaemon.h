@@ -349,7 +349,7 @@ int flushStream(const char* channel, int isInput) {
     }
 
     StreamHeader* header = (StreamHeader*) mapped_file;
-    header->offset = 0;
+    header->offset = sizeof(StreamHeader);
 
     uint8_t* pointer = (uint8_t*) header + sizeof(StreamHeader);
 
