@@ -125,14 +125,16 @@ size_t getSizeofType(uint8_t type) {
     switch (type)
     {
         case 1:
-            return sizeof(char);
+            return sizeof(uint8_t);
         case 2:
-            return sizeof(int);
+            return sizeof(char);
         case 3:
-            return sizeof(int16_t);
+            return sizeof(int);
         case 4:
-            return sizeof(float);
+            return sizeof(int16_t);
         case 5:
+            return sizeof(float);
+        case 6:
             return sizeof(double);
         default:
             return 0;

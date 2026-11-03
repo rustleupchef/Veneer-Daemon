@@ -65,16 +65,18 @@ static func<long[,]> ConvertToMatrix(long[][] dimensions) {
 static func<byte[]> ConvertTypesToBytes(string[] types) {
     byte TypeToByte(string type) {
         switch(type) {
-            case "char":
+            case "byte":
                 return 1;
-            case "int":
+            case "char":
                 return 2;
-            case "long":
+            case "int":
                 return 3;
-            case "float":
+            case "long":
                 return 4;
-            case "double":
+            case "float":
                 return 5;
+            case "double":
+                return 6;
             default:
                 return 0;
         }
