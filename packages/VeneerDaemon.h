@@ -178,7 +178,7 @@ size_t getOutputSize(Schema schema) {
 }
 
 size_t getMappedFileSize(Schema schema, int isInput) {
-    return isInput ? getInputSize(schema) : getOutputSize(schema) + sizeof(StreamHeader);
+    return (isInput ? getInputSize(schema) : getOutputSize(schema)) + sizeof(StreamHeader);
 }
 
 int allocateMappedFile(const char* channel, int isInput) {
@@ -262,6 +262,8 @@ int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
     StreamHeader* header = (StreamHeader*) mapped_file;
     size_t offset = header->offset;
 
+    uint8_t* pointer = (uint8_t*) header + offset;
+
     if (offset + sizeof(DataHeader) + (sizeof(u_int8_t) * size) > filesize) {
         perror("Map buffer can not receive this large of data");
         if (munmap(mapped_file, filesize) == -1) {
@@ -271,11 +273,11 @@ int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
         return -1;
     }
 
-    DataHeader* dataHeader = (DataHeader*) mapped_file + offset;
+    DataHeader* dataHeader = (DataHeader*) pointer;
     dataHeader->type = 1;
     dataHeader->size = size;
 
-    uint8_t* pointer = (uint8_t*) dataHeader + sizeof(DataHeader);
+    pointer = (uint8_t*) dataHeader + sizeof(DataHeader);
     memcpy(pointer, bytes, size);
 
     header->offset = offset + sizeof(DataHeader) + (size * sizeof(uint8_t));
@@ -302,7 +304,7 @@ int flushStream(const char* channel, int isInput) {
     char filepath[256];
     snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
 
-    int fd = open(filepath, O_RDONLY);
+    int fd = open(filepath, O_RDWR);
     if (fd == -1) {
         perror("Failed to open\n");
         return -1;
@@ -315,7 +317,7 @@ int flushStream(const char* channel, int isInput) {
         return -1;
     }
 
-    void *mapped_file = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    void *mapped_file = mmap(NULL, sb.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED) {
         perror("Failed to map file");
         close(fd);
@@ -325,12 +327,14 @@ int flushStream(const char* channel, int isInput) {
     StreamHeader* header = (StreamHeader*) mapped_file;
     header->offset = 0;
 
-    void* pointer = (void*) header + sizeof(size_t);
+    uint8_t* pointer = (uint8_t*) header + sizeof(StreamHeader);
 
     if (isInput) {
         for (int i = 0; i < schema.header->inputByteSize; i++) {
             DataHeader* dataHeader = (DataHeader*) pointer;
+            printf("Data Header: %d\nSchema: %d\n", dataHeader->type, schema.inputBytes[i]);
             if (dataHeader->type != schema.inputBytes[i]) {
+                perror("Data Types do not match");
                 if (munmap(mapped_file, sb.st_size) == -1) {
                     perror("Failed to unmap file");
                     close(fd);
@@ -352,6 +356,7 @@ int flushStream(const char* channel, int isInput) {
             }
 
             if (dataHeader->size != varCount * getSizeofType(dataHeader->type)) {
+                perror("Size does not match");
                 if (munmap(mapped_file, sb.st_size) == -1) {
                     perror("Failed to unmap file");
                     close(fd);
@@ -366,11 +371,14 @@ int flushStream(const char* channel, int isInput) {
                 close(fd);
                 return -1;
             }
+
+            pointer += sizeof(dataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
         }
     } else {
         for (int i = 0; i < schema.header->outputByteSize; i++) {
             DataHeader* dataHeader = (DataHeader*) pointer;
             if (dataHeader->type != schema.outputBytes[i]) {
+                perror("Data Types do not match");
                 if (munmap(mapped_file, sb.st_size) == -1) {
                     perror("Failed to unmap file");
                     close(fd);
@@ -392,6 +400,7 @@ int flushStream(const char* channel, int isInput) {
             }
 
             if (dataHeader->size != varCount * getSizeofType(dataHeader->type)) {
+                perror("Size does not match");
                 if (munmap(mapped_file, sb.st_size) == -1) {
                     perror("Failed to unmap file");
                     close(fd);
@@ -406,6 +415,8 @@ int flushStream(const char* channel, int isInput) {
                 close(fd);
                 return -1;
             }
+
+            pointer += sizeof(dataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
         }
     }
 
