@@ -27,6 +27,10 @@ typedef struct {
 
 } Schema;
 
+typedef struct {
+    size_t offset;
+} StreamHeader;
+
 int getFlag(const char* channel) {
     char filepath[256];
     snprintf(filepath, sizeof(filepath), "/dev/shm/%s/Flag", channel);
@@ -169,4 +173,53 @@ size_t getOutputSize(Schema schema) {
 
 size_t getMappedFileSize(Schema schema, int isInput) {
     return isInput ? getInputSize(schema) : getOutputSize(schema);
+}
+
+int allocateMappedFile(const char* channel, int isInput) {
+    Schema schema = getSchema(channel);
+    size_t size = getMappedFileSize(schema, isInput);
+
+    char* pathIO = isInput ? "Input" : "Output";
+
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
+
+    int fd = open(filepath, O_RDWR | O_CREAT, 0644);
+    if (fd == -1) {
+        perror("Failed to open or create the file");
+        return -1;
+    }
+
+    if (ftruncate(fd, (off_t)size) == -1) {
+        perror("Failed to set file size");
+        close(fd);
+        return -1;
+    }
+
+    void* mapped_file = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
+        perror("Failed initalizing mapped file");
+        close(fd);
+        return -1;
+    }
+
+    StreamHeader* header = (StreamHeader*) mapped_file;
+    header->offset = sizeof(size_t);
+
+    msync(mapped_file, size, MS_SYNC);
+    
+    if (munmap(mapped_file, size) == -1) {
+        perror("Failed unmapping file");
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+
+    if (munmap(schema.header, schema.size) == -1) {
+        perror("Failed unmapping file");
+        return -1;
+    }
+
+    return 0;
 }
