@@ -312,11 +312,11 @@ int writeLongs(const char* channel, int isInput, int64_t* longs, size_t size) {
 }
 
 int writeFloats(const char* channel, int isInput, float* floats, size_t size) {
-    return writeData(channel, isInput, 5, (uint8_t *) floats, size * sizeof(int));
+    return writeData(channel, isInput, 5, (uint8_t *) floats, size * sizeof(float));
 }
 
 int writeDoubles(const char* channel, int isInput, double* doubles, size_t size) {
-    return writeData(channel, isInput, 6, (uint8_t *) doubles, size * sizeof(int));
+    return writeData(channel, isInput, 6, (uint8_t *) doubles, size * sizeof(double));
 }
 
 int flushStream(const char* channel, int isInput) {
