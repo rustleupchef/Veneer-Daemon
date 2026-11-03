@@ -120,3 +120,21 @@ Schema getSchema (const char* channel) {
 
     return schema;
 }
+
+size_t getSizeofType(uint8_t type) {
+    switch (type)
+    {
+        case 1:
+            return sizeof(char);
+        case 2:
+            return sizeof(int);
+        case 3:
+            return sizeof(int16_t);
+        case 4:
+            return sizeof(float);
+        case 5:
+            return sizeof(double);
+        default:
+            return 0;
+    }
+}

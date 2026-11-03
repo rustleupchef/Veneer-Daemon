@@ -69,10 +69,12 @@ static func<byte[]> ConvertTypesToBytes(string[] types) {
                 return 1;
             case "int":
                 return 2;
-            case "float":
+            case "long":
                 return 3;
-            case "double":
+            case "float":
                 return 4;
+            case "double":
+                return 5;
             default:
                 return 0;
         }
