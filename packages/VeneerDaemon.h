@@ -178,7 +178,7 @@ size_t getOutputSize(Schema schema) {
 }
 
 size_t getMappedFileSize(Schema schema, int isInput) {
-    return isInput ? getInputSize(schema) : getOutputSize(schema);
+    return isInput ? getInputSize(schema) : getOutputSize(schema) + sizeof(StreamHeader);
 }
 
 int allocateMappedFile(const char* channel, int isInput) {
@@ -190,7 +190,7 @@ int allocateMappedFile(const char* channel, int isInput) {
     char filepath[256];
     snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
 
-    int fd = open(filepath, O_RDWR | O_CREAT, 0644);
+    int fd = open(filepath, O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (fd == -1) {
         perror("Failed to open or create the file");
         return -1;
@@ -202,7 +202,7 @@ int allocateMappedFile(const char* channel, int isInput) {
         return -1;
     }
 
-    void* mapped_file = mmap(NULL, size + sizeof(size_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    void* mapped_file = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED) {
         perror("Failed initalizing mapped file");
         close(fd);
@@ -289,6 +289,137 @@ int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
     }
 
     close(fd);
+
+    return 0;
+}
+
+int flushStream(const char* channel, int isInput) {
+
+    Schema schema = getSchema(channel);
+
+    char* pathIO = isInput ? "Input" : "Output";
+
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
+
+    int fd = open(filepath, O_RDONLY);
+    if (fd == -1) {
+        perror("Failed to open\n");
+        return -1;
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("Failed to get file size");
+        close(fd);
+        return -1;
+    }
+
+    void *mapped_file = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
+        perror("Failed to map file");
+        close(fd);
+        return -1;
+    }
+
+    StreamHeader* header = (StreamHeader*) mapped_file;
+    header->offset = 0;
+
+    void* pointer = (void*) header + sizeof(size_t);
+
+    if (isInput) {
+        for (int i = 0; i < schema.header->inputByteSize; i++) {
+            DataHeader* dataHeader = (DataHeader*) pointer;
+            if (dataHeader->type != schema.inputBytes[i]) {
+                if (munmap(mapped_file, sb.st_size) == -1) {
+                    perror("Failed to unmap file");
+                    close(fd);
+                    return -1;
+                }
+
+                if (munmap(schema.header, schema.size) == -1) {
+                    perror("Failed to unmap file");
+                    return -1;
+                }
+
+                close(fd);
+                return -1;
+            }
+
+            size_t varCount = 1;
+            for (int j = 0; j < schema.header->inputMatrixCols; j++) {
+                varCount *= schema.inputMatrix[i * schema.header->inputMatrixCols + j];
+            }
+
+            if (dataHeader->size != varCount * getSizeofType(dataHeader->type)) {
+                if (munmap(mapped_file, sb.st_size) == -1) {
+                    perror("Failed to unmap file");
+                    close(fd);
+                    return -1;
+                }
+
+                if (munmap(schema.header, schema.size) == -1) {
+                    perror("Failed to unmap file");
+                    return -1;
+                }
+
+                close(fd);
+                return -1;
+            }
+        }
+    } else {
+        for (int i = 0; i < schema.header->outputByteSize; i++) {
+            DataHeader* dataHeader = (DataHeader*) pointer;
+            if (dataHeader->type != schema.outputBytes[i]) {
+                if (munmap(mapped_file, sb.st_size) == -1) {
+                    perror("Failed to unmap file");
+                    close(fd);
+                    return -1;
+                }
+
+                if (munmap(schema.header, schema.size) == -1) {
+                    perror("Failed to unmap file");
+                    return -1;
+                }
+
+                close(fd);
+                return -1;
+            }
+
+            size_t varCount = 1;
+            for (int j = 0; j < schema.header->outputMatrixCols; j++) {
+                varCount *= schema.inputMatrix[i * schema.header->outputMatrixCols + j];
+            }
+
+            if (dataHeader->size != varCount * getSizeofType(dataHeader->type)) {
+                if (munmap(mapped_file, sb.st_size) == -1) {
+                    perror("Failed to unmap file");
+                    close(fd);
+                    return -1;
+                }
+
+                if (munmap(schema.header, schema.size) == -1) {
+                    perror("Failed to unmap file");
+                    return -1;
+                }
+
+                close(fd);
+                return -1;
+            }
+        }
+    }
+
+    if (munmap(mapped_file, sb.st_size) == -1) {
+        perror("Failed to unmap file");
+        close(fd);
+        return -1;
+    }
+    close(fd);
+
+    if (munmap(schema.header, schema.size) == -1) {
+        perror("Failed to unmap file");
+        return -1;
+    }
 
     return 0;
 }
