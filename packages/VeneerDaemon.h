@@ -67,7 +67,7 @@ Schema getSchema (const char* channel) {
     Schema schema = {0, NULL, NULL, NULL, NULL, NULL};
 
     char filepath[256];
-    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/Flag", channel);
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/Schema", channel);
     
     int fd = open(filepath, O_RDONLY);
     if (fd == -1) {
@@ -139,13 +139,4 @@ size_t getSizeofType(uint8_t type) {
         default:
             return 0;
     }
-}
-
-size_t getMappedFileSize(int fd) {
-    struct stat sb;
-    if (fstat(fd, &sb) == -1) {
-        perror("fstat failed");
-        return 0;
-    }
-    return (size_t)sb.st_size;
 }

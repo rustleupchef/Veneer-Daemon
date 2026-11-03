@@ -54,7 +54,10 @@ static func<long[,]> ConvertToMatrix(long[][] dimensions) {
     long[,] matrix = new long[firstSize, secondSize];
     for (int i = 0; i < firstSize; i++) {
         for (int j = 0; j < secondSize; j++) {
-            if (dimensions[i].Length <= j) break;
+            if (dimensions[i].Length <= j) {
+                matrix[i, j] = 1;
+                continue;
+            }
             matrix[i, j] = dimensions[i][j];
         }
     }
