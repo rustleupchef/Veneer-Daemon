@@ -519,3 +519,27 @@ int readData(const char* channel, int isInput, uint8_t type, uint8_t* bytes, siz
 
     return 0;
 }
+
+int readBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
+    return readData(channel, isInput, 1, bytes, size);
+}
+
+int readChars(const char* channel, int isInput, char* chars, size_t size) {
+    return readData(channel, isInput, 2, (uint8_t*) chars, size);
+}
+
+int readInts(const char* channel, int isInput, int* ints, size_t size) {
+    return readData(channel, isInput, 3, (uint8_t*) ints, size);
+}
+
+int readLongs(const char* channel, int isInput, int64_t* longs, size_t size) {
+    return readData(channel, isInput, 4, (uint8_t*) longs, size);
+}
+
+int readFloats(const char* channel, int isInput, float* floats, size_t size) {
+    return readData(channel, isInput, 5, (uint8_t*) floats, size);
+}
+
+int readDoubles(const char* channel, int isInput, double* doubles, size_t size) {
+    return readData(channel, isInput, 6, (uint8_t*) doubles, size);
+}
