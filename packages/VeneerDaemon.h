@@ -66,7 +66,10 @@ int getFlag(const char* channel) {
 Schema getSchema (const char* channel) {
     Schema schema = {0, NULL, NULL, NULL, NULL, NULL};
 
-    int fd = open("/dev/shm/Siddhant/Schema", O_RDONLY);
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/Flag", channel);
+    
+    int fd = open(filepath, O_RDONLY);
     if (fd == -1) {
         perror("Failed to open\n");
         return schema;
