@@ -41,7 +41,7 @@ int getFlag(const char* channel) {
     if (fstat(fd, &sb) == -1) {
         perror("Failed to get file size");
         close(fd);
-        return 1;
+        return -1;
     }
 
     void *mapped_file = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
@@ -139,4 +139,13 @@ size_t getSizeofType(uint8_t type) {
         default:
             return 0;
     }
+}
+
+size_t getMappedFileSize(int fd) {
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("fstat failed");
+        return 0;
+    }
+    return (size_t)sb.st_size;
 }
