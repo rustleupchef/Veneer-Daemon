@@ -31,6 +31,11 @@ typedef struct {
     size_t offset;
 } StreamHeader;
 
+typedef struct {
+    uint8_t type;
+    size_t size;
+} DataHeader;
+
 int getFlag(const char* channel) {
     char filepath[256];
     snprintf(filepath, sizeof(filepath), "/dev/shm/%s/Flag", channel);
@@ -153,7 +158,7 @@ size_t getInputSize(Schema schema) {
         for (int j = 0; j < schema.header->inputMatrixCols; j++) {
             typeCount *= schema.inputMatrix[schema.header->inputMatrixCols * i + j];
         }
-        total += typeSize * typeCount;
+        total += sizeof(DataHeader) + typeSize * typeCount;
     }
     return total;
 }
@@ -166,7 +171,7 @@ size_t getOutputSize(Schema schema) {
         for (int j = 0; j < schema.header->outputMatrixCols; j++) {
             typeCount *= schema.outputMatrix[schema.header->outputMatrixCols * i + j];
         }
-        total += typeSize * typeCount;
+        total += sizeof(DataHeader) + typeSize * typeCount;
     }
     return total;
 }
