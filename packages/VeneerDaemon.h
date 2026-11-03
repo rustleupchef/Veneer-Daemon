@@ -303,7 +303,7 @@ int writeChars(const char* channel, int isInput, char* chars, size_t size) {
     return writeData(channel, isInput, 2, (uint8_t *) chars, size * sizeof(char));
 }
 
-int writeInts(const char* channel, int isInput, char* ints, size_t size) {
+int writeInts(const char* channel, int isInput, int* ints, size_t size) {
     return writeData(channel, isInput, 3, (uint8_t *) ints, size * sizeof(int));
 }
 
@@ -395,7 +395,7 @@ int flushStream(const char* channel, int isInput) {
                 return -1;
             }
 
-            pointer += sizeof(DataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
+            pointer += sizeof(DataHeader) + dataHeader->size;
         }
     } else {
         for (int i = 0; i < schema.header->outputByteSize; i++) {
@@ -419,7 +419,7 @@ int flushStream(const char* channel, int isInput) {
 
             size_t varCount = 1;
             for (int j = 0; j < schema.header->outputMatrixCols; j++) {
-                varCount *= schema.inputMatrix[i * schema.header->outputMatrixCols + j];
+                varCount *= schema.outputMatrix[i * schema.header->outputMatrixCols + j];
             }
 
             if (dataHeader->size != varCount * getSizeofType(dataHeader->type)) {
@@ -439,7 +439,7 @@ int flushStream(const char* channel, int isInput) {
                 return -1;
             }
 
-            pointer += sizeof(DataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
+            pointer += sizeof(DataHeader) + dataHeader->size;
         }
     }
 
