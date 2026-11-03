@@ -141,7 +141,7 @@ size_t getSizeofType(uint8_t type) {
         case 3:
             return sizeof(int);
         case 4:
-            return sizeof(int16_t);
+            return sizeof(int64_t);
         case 5:
             return sizeof(float);
         case 6:
@@ -308,15 +308,15 @@ int writeInts(const char* channel, int isInput, char* ints, size_t size) {
 }
 
 int writeLongs(const char* channel, int isInput, int64_t* longs, size_t size) {
-    return writeData(channel, isInput, 2, (uint8_t *) longs, size * sizeof(int64_t));
+    return writeData(channel, isInput, 4, (uint8_t *) longs, size * sizeof(int64_t));
 }
 
 int writeFloats(const char* channel, int isInput, float* floats, size_t size) {
-    return writeData(channel, isInput, 2, (uint8_t *) floats, size * sizeof(int));
+    return writeData(channel, isInput, 5, (uint8_t *) floats, size * sizeof(int));
 }
 
 int writeDoubles(const char* channel, int isInput, double* doubles, size_t size) {
-    return writeData(channel, isInput, 2, (uint8_t *) doubles, size * sizeof(int));
+    return writeData(channel, isInput, 6, (uint8_t *) doubles, size * sizeof(int));
 }
 
 int flushStream(const char* channel, int isInput) {
@@ -395,7 +395,7 @@ int flushStream(const char* channel, int isInput) {
                 return -1;
             }
 
-            pointer += sizeof(dataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
+            pointer += sizeof(DataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
         }
     } else {
         for (int i = 0; i < schema.header->outputByteSize; i++) {
@@ -439,7 +439,7 @@ int flushStream(const char* channel, int isInput) {
                 return -1;
             }
 
-            pointer += sizeof(dataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
+            pointer += sizeof(DataHeader) + (getSizeofType(dataHeader->type) + dataHeader->size);
         }
     }
 
@@ -454,6 +454,68 @@ int flushStream(const char* channel, int isInput) {
         perror("Failed to unmap file");
         return -1;
     }
+
+    return 0;
+}
+
+int readData(const char* channel, int isInput, uint8_t type, uint8_t* bytes, size_t size) {
+    
+    char* pathIO = isInput ? "Input" : "Output";
+
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
+
+    int fd = open(filepath, O_RDWR);
+    if (fd == -1) {
+        perror("Failure to open file");
+        return -1;
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("Failure getting status of file");
+        close(fd);
+        return -1;
+    }
+    
+    void* mapped_file = mmap(NULL, sb.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
+        perror("Failure mapping file");
+        close(fd);
+        return -1;
+    }
+
+    StreamHeader* header = (StreamHeader*) mapped_file;
+    size_t offset = header->offset;
+
+    uint8_t* pointer = (uint8_t*) header + offset;
+
+    DataHeader* dataHeader = (DataHeader*) pointer;
+
+    if (dataHeader->type != type || dataHeader->size != size) {
+        perror("Type or size of data header doesn't match current parameters");
+        if (munmap(mapped_file, sb.st_size) == -1) {
+            perror("Failure to unmap file");
+        }
+        close(fd);
+        return -1;
+    }
+    
+    pointer += sizeof(DataHeader);
+
+    for (int i = 0; i < size; i++) {
+        bytes[i] = pointer[i]; 
+    }
+
+    header->offset = offset + sizeof(DataHeader) + dataHeader->size;
+
+    if (munmap(mapped_file, sb.st_size) == -1) {
+        perror("Failure to unmap file");
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
 
     return 0;
 }
