@@ -196,7 +196,7 @@ int allocateMappedFile(const char* channel, int isInput) {
         return -1;
     }
 
-    void* mapped_file = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    void* mapped_file = mmap(NULL, size + sizeof(size_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED) {
         perror("Failed initalizing mapped file");
         close(fd);
