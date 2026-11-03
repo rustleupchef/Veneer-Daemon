@@ -230,7 +230,7 @@ int allocateMappedFile(const char* channel, int isInput) {
     return 0;
 }
 
-int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
+int writeData(const char* channel, int isInput, uint8_t type, uint8_t* bytes, size_t size) {
     
     char* pathIO = isInput ? "Input" : "Output";
 
@@ -274,7 +274,7 @@ int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
     }
 
     DataHeader* dataHeader = (DataHeader*) pointer;
-    dataHeader->type = 1;
+    dataHeader->type = type;
     dataHeader->size = size;
 
     pointer = (uint8_t*) dataHeader + sizeof(DataHeader);
@@ -293,6 +293,30 @@ int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
     close(fd);
 
     return 0;
+}
+
+int writeBytes(const char* channel, int isInput, uint8_t* bytes, size_t size) {
+    return writeData(channel, isInput, 1, bytes, size * sizeof(uint8_t));
+}
+
+int writeChars(const char* channel, int isInput, char* chars, size_t size) {
+    return writeData(channel, isInput, 2, (uint8_t *) chars, size * sizeof(char));
+}
+
+int writeInts(const char* channel, int isInput, char* ints, size_t size) {
+    return writeData(channel, isInput, 3, (uint8_t *) ints, size * sizeof(int));
+}
+
+int writeLongs(const char* channel, int isInput, int64_t* longs, size_t size) {
+    return writeData(channel, isInput, 2, (uint8_t *) longs, size * sizeof(int64_t));
+}
+
+int writeFloats(const char* channel, int isInput, float* floats, size_t size) {
+    return writeData(channel, isInput, 2, (uint8_t *) floats, size * sizeof(int));
+}
+
+int writeDoubles(const char* channel, int isInput, double* doubles, size_t size) {
+    return writeData(channel, isInput, 2, (uint8_t *) doubles, size * sizeof(int));
 }
 
 int flushStream(const char* channel, int isInput) {
