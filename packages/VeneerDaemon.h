@@ -332,7 +332,6 @@ int flushStream(const char* channel, int isInput) {
     if (isInput) {
         for (int i = 0; i < schema.header->inputByteSize; i++) {
             DataHeader* dataHeader = (DataHeader*) pointer;
-            printf("Data Header: %d\nSchema: %d\n", dataHeader->type, schema.inputBytes[i]);
             if (dataHeader->type != schema.inputBytes[i]) {
                 perror("Data Types do not match");
                 if (munmap(mapped_file, sb.st_size) == -1) {
