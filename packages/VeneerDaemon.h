@@ -140,3 +140,33 @@ size_t getSizeofType(uint8_t type) {
             return 0;
     }
 }
+
+size_t getInputSize(Schema schema) {
+    size_t total = 0;
+    for (int i = 0; i < schema.header->inputMatrixRows; i++) {
+        size_t typeSize = getSizeofType(schema.inputBytes[i]);
+        size_t typeCount = 1;
+        for (int j = 0; j < schema.header->inputMatrixCols; j++) {
+            typeCount *= schema.inputMatrix[schema.header->inputMatrixCols * i + j];
+        }
+        total += typeSize * typeCount;
+    }
+    return total;
+}
+
+size_t getOutputSize(Schema schema) {
+    size_t total = 0;
+    for (int i = 0; i < schema.header->outputMatrixRows; i++) {
+        size_t typeSize = getSizeofType(schema.outputBytes[i]);
+        size_t typeCount = 1;
+        for (int j = 0; j < schema.header->outputMatrixCols; j++) {
+            typeCount *= schema.outputMatrix[schema.header->outputMatrixCols * i + j];
+        }
+        total += typeSize * typeCount;
+    }
+    return total;
+}
+
+size_t getMappedFileSize(Schema schema, int isInput) {
+    return isInput ? getInputSize(schema) : getOutputSize(schema);
+}
