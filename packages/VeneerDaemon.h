@@ -319,7 +319,7 @@ int writeDoubles(const char* channel, int isInput, double* doubles, size_t size)
     return writeData(channel, isInput, 6, (uint8_t *) doubles, size * sizeof(double));
 }
 
-int flushStream(const char* channel, int isInput) {
+int flushWriteStream(const char* channel, int isInput) {
 
     Schema schema = getSchema(channel);
 
@@ -542,4 +542,44 @@ int readFloats(const char* channel, int isInput, float* floats, size_t size) {
 
 int readDoubles(const char* channel, int isInput, double* doubles, size_t size) {
     return readData(channel, isInput, 6, (uint8_t*) doubles, size * sizeof(double));
+}
+
+int flushReadStream(const char* channel , int isInput) {
+    
+    char* pathIO = isInput ? "Input" : "Output";
+
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/%s", channel, pathIO);
+
+    int fd = open(filepath, O_RDWR);
+    if (fd == -1) {
+        perror("Failed to open the file");
+        return -1;
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("Failed to grab status of file");
+        close(fd);
+        return -1;
+    }
+
+    void* mapped_file = mmap(NULL, sb.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
+        perror("Failed to map file");
+        close(fd);
+        return -1;
+    }
+
+    StreamHeader* header = (StreamHeader*) mapped_file;
+    header->offset = sizeof(StreamHeader);
+
+    if (munmap(mapped_file, sb.st_size) == -1) {
+        perror("Failed unmapping file");
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    return 0;
 }
