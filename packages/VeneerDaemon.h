@@ -73,6 +73,43 @@ int getFlag(const char* channel) {
     return value;
 }
 
+int setFlag(const char* channel, uint8_t value) {
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "/dev/shm/%s/Flag", channel);
+
+    int fd = open(filepath, O_RDWR);
+    if (fd == -1) {
+        perror("Failure opening file");
+        return -1;
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("Failure getting file status");
+        close(fd);
+    }
+
+    void* mapped_file = mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
+        perror("Failed to map file");
+        close(fd);
+        return -1;
+    }
+
+    uint8_t* single_byte = (uint8_t*) mapped_file;
+    single_byte[0] = value;
+
+    if (munmap(mapped_file, sb.st_size) == -1) {
+        perror("Failure unmapping file");
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    
+    return 0;
+}
+
 Schema getSchema (const char* channel) {
     Schema schema = {0, NULL, NULL, NULL, NULL, NULL};
 
