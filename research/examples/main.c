@@ -4,58 +4,68 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
+#include <semaphore.h>
 
 #define SHM_PATH "/dev/shm/VeneerRuntime"
 #define STR_SIZE 256
 
-// Use standard fixed-size layout matching C# memory structure
 typedef struct {
-    int flag;             // 0: Idle/Processed, 1: Ready for C, 2: Ready for C#
-    char input[STR_SIZE];
-    char output[STR_SIZE];
+    uint8_t flag;
+    uint64_t input[256];
+    uint64_t output[256];
 } SharedData;
 
 int main() {
-    // Open existing shared memory file with read-write access
+
+    sem_t* semClient = sem_open("/VeneerRuntimeClient", O_CREAT, 0666, 0);
+    if (semClient == SEM_FAILED) {
+        perror("sem_open failed");
+        return 1;
+    }
+
+    sem_t* semReceiver = sem_open("/VeneerRuntimeReceiver", O_CREAT, 0666, 1);
+    if (semReceiver == SEM_FAILED) {
+        perror("sem_open failed");
+        return 1;
+    }
+
+    
     int fd = open(SHM_PATH, O_RDWR);
-    if (fd < 0) {
+    if (fd == -1) {
         perror("Failed to open shared memory file");
         return 1;
     }
 
-    // Map struct memory space with write access
-    SharedData* shm = (SharedData*)mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (shm == MAP_FAILED) {
+    sem_wait(semClient);
+    SharedData* mapped_file = (SharedData*)mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED) {
         perror("mmap failed");
         close(fd);
         return 1;
     }
-
-    printf("C Service started listening on %s...\n", SHM_PATH);
-
+    
     while (1) {
-        // Wait until C# updates flag to 1
-        if (shm->flag == 1) {
-            printf("Received input: %s\n", shm->input);
-
-            if (!strcmp(shm->input, "exit"))
-                break;
-
-            // Process data and populate output string
-            snprintf(shm->output, STR_SIZE, "Processed by C: %s", shm->input);
-
-            // Signal to C# that processing is complete
-            shm->flag = 2;
+        if (mapped_file->flag == 1) {
+            break;
         }
 
-        // Sleep briefly to avoid 100% CPU utilization while polling
-        usleep(10000); 
+        for (int i = 0; i < sizeof(mapped_file->input)/sizeof(uint64_t); i++) {
+            mapped_file->output[i] = mapped_file->input[i] * i; 
+        }
+
+        sem_post(semReceiver);
+        sem_wait(semClient);
+
     }
-
-    shm->flag = 3;
-
-    // Cleanup resources
-    munmap(shm, sizeof(SharedData));
+   
+    if (munmap(mapped_file, sizeof(SharedData)) == -1) {
+        perror("munmap failed");
+        close(fd);
+        return 1;
+    }
+    sem_close(semReceiver);
+    sem_close(semClient);
     close(fd);
 
     return 0;

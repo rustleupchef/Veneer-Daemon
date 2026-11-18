@@ -1,21 +1,49 @@
 static func<void> main() {
-    string s = "Testing right now";
-    print(s);
-    sendByMM(s);
+    mmFunction([grabRandomArray(), grabRandomArray()]);
 }
+
+[DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
+private static extern IntPtr sem_open(string name, int oflag, uint mode, uint value);
+
+[DllImport("libc", SetLastError = true)]
+private static extern int sem_wait(IntPtr sem);
+
+[DllImport("libc", SetLastError = true)]
+private static extern int sem_post(IntPtr sem);
+
+[DllImport("libc", SetLastError = true)]
+private static extern int sem_close(IntPtr sem);
+
+[DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
+private static extern int sem_unlink(string name);
 
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-public struct SharedData {
+public unsafe struct SharedData {
     public int Flag;
 
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
-    public string Input;
+    public fixed long Input[256];
 
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
-    public string Output;
+    public fixed long Output[256];
 }
 
-static tooth<void> sendByMM(string s) language("CSHARP") => |
+static tooth<void> printArray(long[] array) language("CSHARP") => |
+    Console.Write("[");
+    for (int i = 0; i < array.Length; i++) {
+        Console.Write($"{i}:{array[i]},");
+    }
+    Console.Write("]\n\n");
+|
+
+static tooth<long[]> grabRandomArray() language("CSHARP") => |
+    Random rand = new Random();
+    long[] numbers = new long[256];
+    for (int i = 0; i < numbers.Length; i++) {
+        numbers[i] = (long) rand.Next(1, 1000);
+    }
+    return numbers;
+|
+
+static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
 
     void WriteStructToAccessor<T>(MemoryMappedViewAccessor accessor, ref T structure) where T : struct
     {
@@ -53,38 +81,52 @@ static tooth<void> sendByMM(string s) language("CSHARP") => |
     }
 
     string mapname = "/dev/shm/VeneerRuntime";
-    long capacity = 1024;
+    long capacity;
+    unsafe {
+        capacity = sizeof(SharedData);
+    };
+
+    IntPtr semClient = sem_open("/VeneerRuntimeClient", 0x40, 0x1B6, 0);
+    IntPtr semReceiver = sem_open("/VeneerRuntimeReceiver", 0x40, 0x1B6, 0);
     
     using (MemoryMappedFile mmf = MemoryMappedFile.CreateFromFile(mapname, FileMode.OpenOrCreate, null, capacity, MemoryMappedFileAccess.ReadWrite)) {
         using (MemoryMappedViewAccessor accessor = mmf.CreateViewAccessor())
         {
-            SharedData data = new SharedData { Flag = 0, Input = "", Output = "" };
+            SharedData data = new SharedData { Flag = 0 };
             WriteStructToAccessor(accessor, ref data);
 
-            bool isRunning = true;
-            while (isRunning) {
-                string input = Console.ReadLine();
+            foreach (long[] input in inputs) {
 
-                data.Input = input;
-                data.Output = "";
-                data.Flag = 1;
-                WriteStructToAccessor(accessor, ref data);
+                unsafe {
 
-                while (true) {
-                    data = ReadStructFromAccessor<SharedData>(accessor);
-                    if (data.Flag == 2) break;
-                    if (data.Flag == 3) {
-                        isRunning = false;
-                        break;
+                    for (int i = 0; i < 256; i++) {
+                        data.Input[i] = input[i];
                     }
-                    Thread.Sleep(10);
                 }
-
-                Console.WriteLine($"Data reponded: {data.Output}");
-
-                data.Flag = 0;
                 WriteStructToAccessor(accessor, ref data);
+
+                sem_post(semClient);
+                sem_wait(semReceiver);
+
+                data = ReadStructFromAccessor<SharedData>(accessor);
+                long[] outputArray = new long[256];
+                unsafe {
+                    for (int i = 0; i < 256; i++) {
+                        outputArray[i] = data.Output[i];
+                    }
+                }
+                printArray(outputArray);
             }
+
+            data.Flag = 1;
+            WriteStructToAccessor(accessor, ref data);
+            sem_post(semClient);
+            Thread.Sleep(100);
+            
+            sem_close(semClient);
+            sem_close(semReceiver);
+            sem_unlink("/VeneerRuntimeClient");
+            sem_unlink("/VeneerRuntimeReceiver");
         }
     }
 
