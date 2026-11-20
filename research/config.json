@@ -7,7 +7,15 @@
             "using System.Threading;"
         ],
         "libraries" : [
-            
+            "<PackageReference Include=\"Wasmtime\" Version=\"50.0.1\" />"
+        ]
+    },
+    "VENEER" : {
+        "imports" : [
+
+        ],
+        "libraries" : [
+            "packages/WASM/bin/"
         ]
     }
 }
