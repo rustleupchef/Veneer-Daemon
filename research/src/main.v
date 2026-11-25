@@ -28,11 +28,7 @@ public unsafe struct SharedData {
 }
 
 static tooth<void> printArray(long[] array) language("CSHARP") => |
-    Console.Write("[");
-    for (int i = 0; i < array.Length; i++) {
-        Console.Write($"{i}:{array[i]},");
-    }
-    Console.Write("]\n\n");
+    Console.WriteLine($"[{string.Join(',', array)}]");
 |
 
 static tooth<long[]> grabRandomArray() language("CSHARP") => |
