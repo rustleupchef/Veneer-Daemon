@@ -1,6 +1,8 @@
 static func<void> main() {
     long[][] inputs = [grabRandomArray(), grabRandomArray()];
     pinvokeFunction(inputs);
+    wasmFunction(inputs);
+    mmFunction(inputs);
 }
 
 [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
@@ -128,6 +130,37 @@ static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
     }
 
     if (File.Exists(mapname)) File.Delete(mapname);
+|
+
+static tooth<void> wasmFunction(long[][] inputs) language("CSHARP") => |
+    using var engine = new Engine();
+    using var module = Module.FromFile(engine, "output.wasm");
+    using var linker = new Linker(engine);
+    using var store = new Store(engine);
+
+    var instance = linker.Instantiate(store, module);
+
+    var memory = instance.GetMemory("memory") 
+        ?? throw new Exception("Module did not export linear memory.");
+
+    var wasmFunc = instance.GetFunction<int, int, int>("wasmFunction") 
+        ?? throw new Exception("wasmFunction not found.");
+
+    int inputOffset = 4096;
+    int outputOffset = 4096 + (256 * sizeof(long));
+
+    foreach(long[] input in inputs) {
+        Span<long> inputSpan = memory.GetSpan<long>(inputOffset, 256);
+        input.AsSpan().CopyTo(inputSpan);
+
+        int result = wasmFunc(inputOffset, outputOffset);
+
+        Span<long> outputSpan = memory.GetSpan<long>(outputOffset, 256);
+        long[] output = outputSpan.ToArray();
+        printArray(input);
+        printArray(output);
+    }
+
 |
 
 static tooth<void> pinvokeFunction(long[][] inputs) language("CSHARP") => |
