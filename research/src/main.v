@@ -1,8 +1,8 @@
 static func<void> main() {
-    long[][] inputs = [grabRandomArray(), grabRandomArray()];
+    long[][] inputs = makeInputs(2, 4);
     pinvokeFunction(inputs);
-    wasmFunction(inputs);
     mmFunction(inputs);
+    wasmFunction(inputs);
 }
 
 [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
@@ -33,14 +33,22 @@ static tooth<void> printArray(long[] array) language("CSHARP") => |
     Console.WriteLine($"[{string.Join(',', array)}]");
 |
 
-static tooth<long[]> grabRandomArray() language("CSHARP") => |
+static tooth<long[]> grabRandomArray(int size) language("CSHARP") => |
     Random rand = new Random();
-    long[] numbers = new long[256];
-    for (int i = 0; i < numbers.Length; i++) {
+    long[] numbers = new long[size];
+    for (int i = 0; i < size; i++) {
         numbers[i] = (long) rand.Next(1, 1000);
     }
     return numbers;
 |
+
+static func<long[][]> makeInputs(int numberOfInputs, int sizeOfInputs) {
+    long[][] inputs = new long[numberOfInputs][];
+    for (int i = 0; i < numberOfInputs; i++) {
+        inputs[i] = grabRandomArray(sizeOfInputs);
+    }
+    return inputs;
+}
 
 static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
 
@@ -157,7 +165,6 @@ static tooth<void> wasmFunction(long[][] inputs) language("CSHARP") => |
 
         Span<long> outputSpan = memory.GetSpan<long>(outputOffset, 256);
         long[] output = outputSpan.ToArray();
-        printArray(input);
         printArray(output);
     }
 
@@ -165,14 +172,14 @@ static tooth<void> wasmFunction(long[][] inputs) language("CSHARP") => |
 
 static tooth<void> pinvokeFunction(long[][] inputs) language("CSHARP") => |
     foreach(long[] input in inputs) {
-        long[] output = new long[256];
-        cFunction(input, output);
+        long[] output = new long[input.Length];
+        cFunction(input, output, output.Length);
         printArray(output);
     }
 |
 
-tooth<int> cFunction(long[] Input, long[] Output) language("C") => |
-    for (int i = 0; i < 256; i++) {
+tooth<int> cFunction(long[] Input, long[] Output, int size) language("C") => |
+    for (int i = 0; i < size; i++) {
         Output[i] = Input[i] * i;
     }
     return 0;
