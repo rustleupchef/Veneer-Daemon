@@ -1,5 +1,6 @@
 static func<void> main() {
-    mmFunction([grabRandomArray(), grabRandomArray()]);
+    long[][] inputs = [grabRandomArray(), grabRandomArray()];
+    pinvokeFunction(inputs);
 }
 
 [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
@@ -131,6 +132,21 @@ static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
     }
 
     if (File.Exists(mapname)) File.Delete(mapname);
+|
+
+static tooth<void> pinvokeFunction(long[][] inputs) language("CSHARP") => |
+    foreach(long[] input in inputs) {
+        long[] output = new long[256];
+        cFunction(input, output);
+        printArray(output);
+    }
+|
+
+tooth<int> cFunction(long[] Input, long[] Output) language("C") => |
+    for (int i = 0; i < 256; i++) {
+        Output[i] = Input[i] * i;
+    }
+    return 0;
 |
 
 tooth<void> print(string s) language("C") => |
