@@ -1,3 +1,4 @@
+// Compile: clang --target=wasm32 -O0 -nostdlib -Wl,--no-entry -Wl,--export-dynamic -o bin/output.wasm main.c
 #include <stdint.h>
 
 __attribute__((export_name("wasmFunction")))
