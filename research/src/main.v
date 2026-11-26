@@ -1,7 +1,7 @@
 private static int[] checkpoints = [10, 100, 1000, 10000];
 private static Stopwatch sw = new Stopwatch();
 private static double overhead;
-private const int arraySize = 16;
+private const int arraySize = 4096;
 private const int total_runs = 5;
 
 static func<void> main() {
@@ -198,8 +198,8 @@ static tooth<void> wasmFunction(long[][] inputs) language("CSHARP") => |
     var wasmFunc = instance.GetFunction<int, int, int>("wasmFunction") 
         ?? throw new Exception("wasmFunction not found.");
 
-    int inputOffset = 4096;
-    int outputOffset = 4096 + (arraySize * sizeof(long));
+    int inputOffset = 1 << 17;
+    int outputOffset = inputOffset + (arraySize * sizeof(long));
 
     for (int k = 0; k < total_runs; k++) {
         int index = 0;

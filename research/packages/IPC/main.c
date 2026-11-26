@@ -12,8 +12,8 @@
 
 typedef struct {
     uint8_t flag;
-    int64_t input[16];
-    int64_t output[16];
+    int64_t input[4096];
+    int64_t output[4096];
 } SharedData;
 
 int main() {
