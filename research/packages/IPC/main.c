@@ -9,12 +9,11 @@
 #include <semaphore.h>
 
 #define SHM_PATH "/dev/shm/VeneerRuntime"
-#define STR_SIZE 256
 
 typedef struct {
     uint8_t flag;
-    int64_t input[256];
-    int64_t output[256];
+    int64_t input[16];
+    int64_t output[16];
 } SharedData;
 
 int main() {

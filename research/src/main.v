@@ -1,7 +1,7 @@
 private static int[] checkpoints = [10, 100, 1000, 10000];
 private static Stopwatch sw = new Stopwatch();
 private static double overhead;
-private const int arraySize = 256;
+private const int arraySize = 16;
 private const int total_runs = 5;
 
 static func<void> main() {
