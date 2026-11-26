@@ -3,7 +3,7 @@
 
 __attribute__((export_name("wasmFunction")))
 int wasmFunction(int64_t* Input, int64_t* Output) {
-    for (int i = 0; i < 4096; i++) {
+    for (int i = 0; i < 65536; i++) {
         Output[i] = Input[i] * i;
     }
     return 0;
