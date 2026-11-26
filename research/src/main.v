@@ -1,9 +1,11 @@
 private static int[] checkpoints = [10, 100, 1000, 10000];
 private static Stopwatch sw = new Stopwatch();
 private static double overhead;
+private const int arraySize = 256;
+private const int total_runs = 5;
 
 static func<void> main() {
-    long[][] inputs = makeInputs(10000, 256);
+    long[][] inputs = makeInputs(10000, arraySize);
     overhead = getOverheadOfStopWatch();
 
     Console.WriteLine($"\nOverhead: {overhead}");
@@ -53,9 +55,9 @@ private static extern int sem_unlink(string name);
 public unsafe struct SharedData {
     public int Flag;
 
-    public fixed long Input[256];
+    public fixed long Input[arraySize];
 
-    public fixed long Output[256];
+    public fixed long Output[arraySize];
 }
 
 static tooth<void> printArray(long[] array) language("CSHARP") => |
@@ -133,7 +135,7 @@ static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
             sem_post(semClient);
             sem_wait(semReceiver);
 
-            for (int k = 0; k < 5; k++) {
+            for (int k = 0; k < total_runs; k++) {
                 int index = 0;
                 long[] recordedCheckPoints = new long[checkpoints.Length];
                 sw.Restart();
@@ -141,7 +143,7 @@ static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
                     long[] input = inputs[j];
 
                     unsafe {
-                        for (int i = 0; i < 256; i++) {
+                        for (int i = 0; i < arraySize; i++) {
                             data.Input[i] = input[i];
                         }
                     }
@@ -151,9 +153,9 @@ static tooth<void> mmFunction(long[][] inputs) language("CSHARP") => |
                     sem_wait(semReceiver);
 
                     data = ReadStructFromAccessor<SharedData>(accessor);
-                    long[] outputArray = new long[256];
+                    long[] outputArray = new long[arraySize];
                     unsafe {
-                        for (int i = 0; i < 256; i++) {
+                        for (int i = 0; i < arraySize; i++) {
                             outputArray[i] = data.Output[i];
                         }
                     }
@@ -197,20 +199,20 @@ static tooth<void> wasmFunction(long[][] inputs) language("CSHARP") => |
         ?? throw new Exception("wasmFunction not found.");
 
     int inputOffset = 4096;
-    int outputOffset = 4096 + (256 * sizeof(long));
+    int outputOffset = 4096 + (arraySize * sizeof(long));
 
-    for (int k = 0; k < 5; k++) {
+    for (int k = 0; k < total_runs; k++) {
         int index = 0;
         long[] recordedCheckPoints = new long[checkpoints.Length];
         sw.Restart();
         for (int i = 0; i < inputs.Length; i++) {
             long[] input = inputs[i];
-            Span<long> inputSpan = memory.GetSpan<long>(inputOffset, 256);
+            Span<long> inputSpan = memory.GetSpan<long>(inputOffset, arraySize);
             input.AsSpan().CopyTo(inputSpan);
 
             int result = wasmFunc(inputOffset, outputOffset);
 
-            Span<long> outputSpan = memory.GetSpan<long>(outputOffset, 256);
+            Span<long> outputSpan = memory.GetSpan<long>(outputOffset, arraySize);
             long[] output = outputSpan.ToArray();
             if (i + 1 == checkpoints[index]) {
                 recordedCheckPoints[index] = sw.ElapsedTicks;
@@ -223,7 +225,7 @@ static tooth<void> wasmFunction(long[][] inputs) language("CSHARP") => |
 |
 
 static tooth<void> pinvokeFunction(long[][] inputs) language("CSHARP") => |
-    for (int k = 0; k < 5; k++) {
+    for (int k = 0; k < total_runs; k++) {
         int index = 0;
         long[] recordedCheckPoints = new long[checkpoints.Length];
         sw.Restart();
