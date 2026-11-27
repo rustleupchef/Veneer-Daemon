@@ -1,6 +1,10 @@
 {
     "timer_overhead" : 22.58692,
     "conversion" : 1,
+    "format" : {
+        "checkpoints" : [10, 100, 1000, 10000],
+        "total_runs" : 5
+    },
     "tests" : {
         "16" : {
             "PInvoke" : [
